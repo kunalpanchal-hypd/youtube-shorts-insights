@@ -59,7 +59,30 @@ def get_video_data(video_ids):
         for video in response.get("items", []):
             returned_videos[video["id"]] = video
 
-        # Create a result for every requested ID
+        # Get unique channel IDs from this batch
+        channel_ids = []
+
+        for video in returned_videos.values():
+            channel_id = video.get("snippet", {}).get("channelId", "")
+
+            if channel_id and channel_id not in channel_ids:
+                channel_ids.append(channel_id)
+
+        # Fetch channel information in batches
+        channel_data = {}
+
+        for j in range(0, len(channel_ids), 50):
+            channel_batch = channel_ids[j:j + 50]
+
+            channel_response = youtube.channels().list(
+                part="snippet,statistics",
+                id=",".join(channel_batch)
+            ).execute()
+
+            for channel in channel_response.get("items", []):
+                channel_data[channel["id"]] = channel
+
+        # Create a result for every requested video ID
         for video_id in batch:
 
             if video_id not in returned_videos:
@@ -69,6 +92,12 @@ def get_video_data(video_ids):
                     "Views": "",
                     "Likes": "",
                     "Comments": "",
+                    "Tags": "",
+                    "Channel Name": "",
+                    "Total Videos": "",
+                    "Total Views": "",
+                    "Total Subscribers": "",
+                    "Average Views": "",
                     "Status": "Not found / unavailable"
                 })
                 continue
@@ -77,6 +106,35 @@ def get_video_data(video_ids):
 
             snippet = video.get("snippet", {})
             statistics = video.get("statistics", {})
+
+            channel_id = snippet.get("channelId", "")
+            channel = channel_data.get(channel_id, {})
+
+            channel_name = channel.get(
+                "snippet", {}
+            ).get("title", "")
+
+            channel_statistics = channel.get(
+                "statistics", {}
+            )
+
+            total_videos = int(
+                channel_statistics.get("videoCount", 0)
+            )
+
+            total_views = int(
+                channel_statistics.get("viewCount", 0)
+            )
+
+            total_subscribers = int(
+                channel_statistics.get("subscriberCount", 0)
+            )
+
+            average_views = (
+                total_views / total_videos
+                if total_videos > 0
+                else 0
+            )
 
             title = snippet.get("title", "")
             description = snippet.get("description", "")
@@ -89,22 +147,36 @@ def get_video_data(video_ids):
             )
 
             # Remove duplicates while preserving order
-            tags_and_mentions = list(dict.fromkeys(tags_and_mentions))
+            tags_and_mentions = list(
+                dict.fromkeys(tags_and_mentions)
+            )
 
             tags = ", ".join(tags_and_mentions)
 
             results.append({
-            "Video ID": video["id"],
-            "Title": title,
-            "Views": int(statistics.get("viewCount", 0)),
-            "Likes": int(statistics.get("likeCount", 0)),
-            "Comments": int(statistics.get("commentCount", 0)),
-            "Tags": tags,
-            "Status": "Found"
-        })
+                "Video ID": video["id"],
+                "Title": title,
+                "Views": int(
+                    statistics.get("viewCount", 0)
+                ),
+                "Likes": int(
+                    statistics.get("likeCount", 0)
+                ),
+                "Comments": int(
+                    statistics.get("commentCount", 0)
+                ),
+                "Tags": tags,
+                "Channel Name": channel_name,
+                "Total Videos": total_videos,
+                "Total Views": total_views,
+                "Total Subscribers": total_subscribers,
+                "Average Views": round(
+                    average_views, 2
+                ),
+                "Status": "Found"
+            })
 
     return results
-
 uploaded_file = st.file_uploader(
     "Upload your CSV file",
     type=["csv"]
