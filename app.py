@@ -78,14 +78,30 @@ def get_video_data(video_ids):
             snippet = video.get("snippet", {})
             statistics = video.get("statistics", {})
 
+            title = snippet.get("title", "")
+            description = snippet.get("description", "")
+
+            text_to_search = f"{title} {description}"
+
+            tags_and_mentions = re.findall(
+                r"(?:#|@)[A-Za-z0-9_]+",
+                text_to_search
+            )
+
+            # Remove duplicates while preserving order
+            tags_and_mentions = list(dict.fromkeys(tags_and_mentions))
+
+            tags = ", ".join(tags_and_mentions)
+
             results.append({
-                "Video ID": video["id"],
-                "Title": snippet.get("title", ""),
-                "Views": int(statistics.get("viewCount", 0)),
-                "Likes": int(statistics.get("likeCount", 0)),
-                "Comments": int(statistics.get("commentCount", 0)),
-                "Status": "Found"
-            })
+            "Video ID": video["id"],
+            "Title": title,
+            "Views": int(statistics.get("viewCount", 0)),
+            "Likes": int(statistics.get("likeCount", 0)),
+            "Comments": int(statistics.get("commentCount", 0)),
+            "Tags": tags,
+            "Status": "Found"
+        })
 
     return results
 
@@ -147,7 +163,7 @@ if uploaded_file is not None:
 
                             if results:
                                 results_df = pd.DataFrame(results)
-                                
+
                                 results_df.insert(
                                     0,
                                     "URL",
