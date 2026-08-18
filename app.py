@@ -44,7 +44,7 @@ def extract_video_id(url):
 
     return None
 
-def get_video_data(video_ids):
+def get_video_data(video_ids, progress_bar=None, status_text=None):
     """Fetch video information from YouTube Data API."""
 
     youtube = build("youtube", "v3", developerKey=API_KEY)
@@ -52,8 +52,18 @@ def get_video_data(video_ids):
     results = []
 
     # YouTube allows up to 50 video IDs per API request
-    for i in range(0, len(video_ids), 50):
-        batch = video_ids[i:i + 50]
+    batch_size = 50
+    total_batches = (len(video_ids) + batch_size - 1) // batch_size
+
+    for i in range(0, len(video_ids), batch_size):
+        batch = video_ids[i:i + batch_size]
+
+        current_batch = (i // batch_size) + 1
+
+        if status_text:
+            status_text.text(
+                f"Processing batch {current_batch} of {total_batches}..."
+            )
 
         response = youtube.videos().list(
             part="snippet,statistics",
@@ -183,6 +193,15 @@ def get_video_data(video_ids):
                 "Status": "Found"
             })
 
+        # Update progress after completing this batch
+        if progress_bar:
+            progress_bar.progress(
+                current_batch / total_batches
+            )
+
+    if status_text:
+        status_text.text("Processing complete!")
+
     return results
 uploaded_file = st.file_uploader(
     "Upload your CSV file",
@@ -238,7 +257,14 @@ if uploaded_file is not None:
                         )
 
                         try:
-                            results = get_video_data(video_ids)
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+
+                            results = get_video_data(
+                                video_ids,
+                                progress_bar=progress_bar,
+                                status_text=status_text
+                            )
 
                             if results:
                                 results_df = pd.DataFrame(results)
