@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from googleapiclient.discovery import build
 import re
-
+from PIL import Image
 
 st.set_page_config(
     page_title="YouTube Shorts Insights",
@@ -10,7 +10,14 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("▶️ YouTube Shorts Insights")
+col1, col2 = st.columns([5, 1])
+
+with col1:
+    st.title("▶️ YouTube Shorts Insights")
+
+with col2:
+    logo = Image.open("logo.png")
+    st.image(logo, width=100)
 st.write("Upload a CSV containing YouTube Shorts links to get video insights.")
 
 
